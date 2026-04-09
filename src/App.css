@@ -68,3 +68,35 @@ button:active {
   50% { transform: scale(1.2); opacity: 0.5; }
   100% { transform: scale(1); opacity: 1; }
 }
+/* =========================================
+   SAFARI PLAY BUTONU KATLİAMI (GLOBAL)
+========================================= */
+video::-webkit-media-controls { 
+  display: none !important; 
+  opacity: 0 !important; 
+  visibility: hidden !important; 
+}
+video::-webkit-media-controls-enclosure { 
+  display: none !important; 
+}
+video::-webkit-media-controls-start-playback-button { 
+  display: none !important; 
+  -webkit-appearance: none !important; 
+}
+video::-webkit-media-controls-play-button { 
+  display: none !important; 
+}
+video::-webkit-media-controls-panel { 
+  display: none !important; 
+}
+video::-webkit-media-controls-overlay-play-button { 
+  display: none !important; 
+}
+/* Videoya tıklanmasını tamamen yasakla */
+/* Videoya tıklanmasını tamamen yasakla */
+video {
+  pointer-events: none !important; 
+  -webkit-touch-callout: none !important;
+  -webkit-user-select: none !important; /* Apple/Safari için */
+  user-select: none !important; /* Standart kullanım (Sarı çizgiyi bu yok eder) */
+}

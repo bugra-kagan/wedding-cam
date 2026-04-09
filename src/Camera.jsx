@@ -1,7 +1,6 @@
 import { useRef, useEffect, useState } from 'react';
 
-// 🔥 YENİ: isActive prop'unu içeri aldık
-export default function Camera({ name, onFinish, initialPhotos, isActive }) {
+export default function Camera({ name, onFinish, initialPhotos }) {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   
@@ -26,7 +25,6 @@ export default function Camera({ name, onFinish, initialPhotos, isActive }) {
     { id: 'streak', label: '👓 Astigmat' }
   ];
 
-  // KAMERAYI BAŞLATMA
   useEffect(() => {
     let isMounted = true;
     const startCamera = async () => {
@@ -37,25 +35,31 @@ export default function Camera({ name, onFinish, initialPhotos, isActive }) {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode, width: { ideal: 1920 }, height: { ideal: 1080 } }
         });
+        
         if (isMounted && videoRef.current) {
           videoRef.current.srcObject = stream;
+          
+          // 🔥 SAFARİ DOM MÜDAHALELERİ
+          videoRef.current.setAttribute('autoplay', '');
+          videoRef.current.setAttribute('muted', '');
+          videoRef.current.setAttribute('playsinline', '');
+          videoRef.current.setAttribute('webkit-playsinline', '');
           videoRef.current.muted = true;
-          videoRef.current.play().catch(e => console.error(e));
+          
+          // Promise ile oynatmayı zorla
+          const playPromise = videoRef.current.play();
+          if (playPromise !== undefined) {
+            playPromise.catch(error => {
+              console.log("Safari otomatik oynatmayı engelledi, tekrar deneniyor...", error);
+              videoRef.current.play().catch(e => console.error("Tamamen engellendi:", e));
+            });
+          }
         }
       } catch (err) { console.error("Kamera izni hatası", err); }
     };
     startCamera();
     return () => { isMounted = false; };
   }, [facingMode]);
-
-  // 🔥 YENİ: Galeri'den kameraya geri dönüldüğünde videoyu zorla oynat
-  useEffect(() => {
-    if (isActive && videoRef.current) {
-      videoRef.current.play().catch(() => {
-        // Hata olursa sessizce yoksay
-      });
-    }
-  }, [isActive]);
 
   const getCssFilter = () => {
     switch (activeFilter) {
@@ -149,9 +153,7 @@ export default function Camera({ name, onFinish, initialPhotos, isActive }) {
       const updated = [...prev, newPhotoObj];
       try {
         localStorage.setItem('guestPhotos', JSON.stringify(updated));
-      } catch (err) {
-        console.warn('Hafıza doldu, fotoğraf geçici bellekte tutuluyor.');
-      }
+      } catch (err) {}
       return updated;
     });
   };
@@ -159,10 +161,11 @@ export default function Camera({ name, onFinish, initialPhotos, isActive }) {
   return (
     <div style={{ position: 'fixed', inset: 0, backgroundColor: '#000', display: 'flex', flexDirection: 'column', zIndex: 9999 }}>
       
+      {/* Ne olur ne olmaz bunlar da yerinde kalsın */}
       <style>{`
-        video::-webkit-media-controls { display: none !important; opacity: 0 !important; }
+        video::-webkit-media-controls { display: none !important; opacity: 0 !important; visibility: hidden !important; }
         video::-webkit-media-controls-enclosure { display: none !important; }
-        video::-webkit-media-controls-start-playback-button { display: none !important; -webkit-appearance: none; }
+        video::-webkit-media-controls-start-playback-button { display: none !important; -webkit-appearance: none !important; }
         video::-webkit-media-controls-play-button { display: none !important; }
         video::-webkit-media-controls-panel { display: none !important; }
         video::-webkit-media-controls-overlay-play-button { display: none !important; }
@@ -170,7 +173,6 @@ export default function Camera({ name, onFinish, initialPhotos, isActive }) {
 
       {isFlashing && <div style={{ position: 'absolute', inset: 0, backgroundColor: 'white', zIndex: 10000 }} />}
       
-      {/* Üst Bar */}
       <div style={{ padding: '25px 20px', display: 'flex', justifyContent: 'space-between', color: '#fff', zIndex: 20 }}>
         <span style={{ fontSize: '13px', letterSpacing: '2px', fontWeight: 'bold' }}>{name.toUpperCase()}</span>
         <button 
@@ -181,7 +183,6 @@ export default function Camera({ name, onFinish, initialPhotos, isActive }) {
         </button>
       </div>
 
-      {/* Kamera Alanı */}
       <div style={{ flex: 1, position: 'relative', margin: '0 8px', overflow: 'hidden', borderRadius: '24px' }}>
         <video 
           ref={videoRef} 
@@ -190,15 +191,12 @@ export default function Camera({ name, onFinish, initialPhotos, isActive }) {
           muted 
           disablePictureInPicture 
           disableRemotePlayback 
-          // 🔥 YENİ: Tarayıcı videoyu arka planda durdurmaya kalkarsa, inatla geri oynat diyoruz!
-          onPause={(e) => {
-             e.target.play().catch(() => {});
-          }}
           style={{ 
             width: '100%', 
             height: '100%', 
             objectFit: 'cover', 
-            transform: facingMode === 'user' ? 'scaleX(-1)' : 'none', 
+            /* 🔥 VAHŞİ ÇÖZÜM: Scale ile videoyu %2 büyütüp kenardaki butonları ekran dışına itiyoruz */
+            transform: facingMode === 'user' ? 'scaleX(-1) scale(1.02)' : 'scale(1.02)', 
             filter: getCssFilter(),
             pointerEvents: 'none', 
             userSelect: 'none', 
@@ -210,7 +208,6 @@ export default function Camera({ name, onFinish, initialPhotos, isActive }) {
         <div style={{ position: 'absolute', inset: 0, boxShadow: 'inset 0 0 100px rgba(0,0,0,0.6)', pointerEvents: 'none' }} />
       </div>
 
-      {/* Kontrol Paneli */}
       <div style={{ padding: '20px 0 40px', background: '#000' }}>
         <div style={{ display: 'flex', gap: '15px', overflowX: 'auto', padding: '0 20px 25px', scrollbarWidth: 'none' }}>
           {filters.map(f => (

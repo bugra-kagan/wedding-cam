@@ -14,7 +14,6 @@ export default function App() {
     return localStorage.getItem('guestName') || '';
   });
 
-  // 💾 HAFIZA ÇÖZÜMÜ: Sayfa yenilense de galeriyi localStorage'dan oku
   const [galleryPhotos, setGalleryPhotos] = useState(() => {
     const saved = localStorage.getItem('guestPhotos');
     return saved ? JSON.parse(saved) : [];
@@ -24,6 +23,8 @@ export default function App() {
     e?.preventDefault();
     if (name.trim() !== '') {
       localStorage.setItem('guestName', name.trim());
+      // Kullanıcı ekrana dokunduğu an direkt geçiş yapıyoruz, Safari'nin 
+      // etkileşim kuralını bu buton sayesinde köprü olarak kullanıyoruz.
       setStep('camera');
     } else {
       alert('Lütfen devam etmek için isminizi girin! 😊');
@@ -31,12 +32,10 @@ export default function App() {
   }
 
   const handleFinish = async (photosFromCamera) => {
-    // 1. BEKLEME YOK: Fotoğrafları hem state'e hem hafızaya kaydedip hemen galeriye geç
     setGalleryPhotos(photosFromCamera);
     localStorage.setItem('guestPhotos', JSON.stringify(photosFromCamera));
     setStep('gallery');
     
-    // 2. ARKA PLAN İŞLEMİ: Kullanıcı galeride gezinirken çaktırmadan Firebase'e yükle
     try {
       for (let i = 0; i < photosFromCamera.length; i++) {
         const photoObj = photosFromCamera[i];
@@ -74,35 +73,30 @@ export default function App() {
   return (
     <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden', backgroundColor: '#000' }}>
       
-      {/* KAMERA EKRANI */}
-      <div style={{ 
-        position: 'absolute', inset: 0, 
-        visibility: step === 'camera' ? 'visible' : 'hidden', 
-        opacity: step === 'camera' ? 1 : 0, 
-        zIndex: 10
-      }}>
-        {/* 🔥 YENİ: isActive prop'u ile Kameraya "şu an ekrandasın" bilgisini gönderiyoruz */}
+      {/* KAMERA EKRANI: Asla gizlenmiyor, hep arkada çalışıyor */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 10 }}>
         <Camera 
           name={name} 
           onFinish={handleFinish} 
           initialPhotos={galleryPhotos} 
-          isActive={step === 'camera'} 
         />
       </div>
 
-      {/* GALERİ EKRANI */}
-      <div style={{ 
-        position: 'absolute', inset: 0, 
-        visibility: step === 'gallery' ? 'visible' : 'hidden', 
-        opacity: step === 'gallery' ? 1 : 0, 
-        zIndex: 20
-      }}>
-        <GlobalGallery 
-          allPhotos={galleryPhotos} 
-          currentUser={name} 
-          onBack={handleBackToCamera} 
-        />
-      </div>
+      {/* GALERİ EKRANI: Kameranın üzerine siyah bir perde gibi çöküyor */}
+      {step === 'gallery' && (
+        <div style={{ 
+          position: 'absolute', 
+          inset: 0, 
+          zIndex: 20, 
+          backgroundColor: '#000' 
+        }}>
+          <GlobalGallery 
+            allPhotos={galleryPhotos} 
+            currentUser={name} 
+            onBack={handleBackToCamera} 
+          />
+        </div>
+      )}
       
     </div>
   )
