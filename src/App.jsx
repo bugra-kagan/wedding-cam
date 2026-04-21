@@ -6,104 +6,100 @@ import { ref, uploadString, getDownloadURL } from 'firebase/storage'
 import { collection, addDoc, onSnapshot, query, orderBy } from 'firebase/firestore'
 import './App.css'
 
+const FilmStrip = () => (
+  <div className="film-strip">
+    {Array.from({ length: 22 }).map((_, i) => <div key={i} className="film-hole" />)}
+  </div>
+)
+
 export default function App() {
-  const [step, setStep] = useState(() => {
-    return localStorage.getItem('guestName') ? 'camera' : 'welcome';
-  });
+  const [step, setStep] = useState(() =>
+    localStorage.getItem('guestName') ? 'camera' : 'welcome'
+  )
+  const [name, setName] = useState(() => localStorage.getItem('guestName') || '')
+  const [localPhotos, setLocalPhotos] = useState([])
+  const [globalPhotos, setGlobalPhotos] = useState([])
+  const uploadedIds = useRef(new Set())
 
-  const [name, setName] = useState(() => {
-    return localStorage.getItem('guestName') || '';
-  });
-
-  // Kullanıcının bu oturumda çektiği fotoğraflar (sadece memory'de, localStorage'a yazılmıyor)
-  const [localPhotos, setLocalPhotos] = useState([]);
-
-  // Tüm misafirlerin fotoğrafları (Firestore'dan realtime)
-  const [globalPhotos, setGlobalPhotos] = useState([]);
-
-  // Hangi photo.id'lerin Firebase'e yüklendiğini takip ediyoruz (tekrar yükleme önleme)
-  const uploadedIds = useRef(new Set());
-
-  // Firestore'dan tüm fotoğrafları realtime dinle
   useEffect(() => {
-    const q = query(collection(db, 'fotograflar'), orderBy('createdAt', 'desc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const photos = snapshot.docs.map(doc => ({ firestoreId: doc.id, ...doc.data() }));
-      setGlobalPhotos(photos);
-    });
-    return () => unsubscribe();
-  }, []);
+    const q = query(collection(db, 'fotograflar'), orderBy('createdAt', 'desc'))
+    const unsub = onSnapshot(q, (snap) => {
+      setGlobalPhotos(snap.docs.map(d => ({ firestoreId: d.id, ...d.data() })))
+    })
+    return () => unsub()
+  }, [])
 
   const handleStart = (e) => {
-    e?.preventDefault();
-    if (name.trim() !== '') {
-      localStorage.setItem('guestName', name.trim());
-      setStep('camera');
+    e?.preventDefault()
+    if (name.trim()) {
+      localStorage.setItem('guestName', name.trim())
+      setStep('camera')
     } else {
-      alert('Lütfen devam etmek için isminizi girin! 😊');
+      alert('Lütfen isminizi girin.')
     }
   }
 
   const handleFinish = async (photosFromCamera) => {
-    setLocalPhotos(photosFromCamera);
-    setStep('gallery');
-
-    // Sadece daha önce yüklenmeyen fotoğrafları yükle
-    const newPhotos = photosFromCamera.filter(p => !uploadedIds.current.has(p.id));
-
+    setLocalPhotos(photosFromCamera)
+    setStep('gallery')
+    const newPhotos = photosFromCamera.filter(p => !uploadedIds.current.has(p.id))
     for (const photoObj of newPhotos) {
       try {
-        const safeName = name.replace(/\s+/g, '_');
-        const fileName = `fotograflar/${safeName}_${photoObj.id}.jpg`;
-        const storageRef = ref(storage, fileName);
-
-        // Storage'a yükle
-        await uploadString(storageRef, photoObj.url, 'data_url');
-        const downloadURL = await getDownloadURL(storageRef);
-
-        // Firestore'a metadata kaydet
+        const safeName = name.replace(/\s+/g, '_')
+        const storageRef = ref(storage, `fotograflar/${safeName}_${photoObj.id}.jpg`)
+        await uploadString(storageRef, photoObj.url, 'data_url')
+        const downloadURL = await getDownloadURL(storageRef)
         await addDoc(collection(db, 'fotograflar'), {
           url: downloadURL,
           user: name,
           filter: photoObj.filter,
           localId: photoObj.id,
           createdAt: Date.now(),
-        });
-
-        // Bu id'yi yüklenmiş olarak işaretle
-        uploadedIds.current.add(photoObj.id);
-      } catch (error) {
-        console.error("Firebase yükleme hatası:", error);
+        })
+        uploadedIds.current.add(photoObj.id)
+      } catch (err) {
+        console.error('Yükleme hatası:', err)
       }
     }
   }
 
-  const handleBackToCamera = () => {
-    setStep('camera');
-  }
-
   if (step === 'welcome') {
     return (
-      <div className="container">
-        <h1 style={{ fontSize: '24px', letterSpacing: '3px', marginBottom: '10px' }}>DÜĞÜN HATIRASI</h1>
-        <p style={{ opacity: 0.6, fontSize: '14px', marginBottom: '30px' }}>Anılarınızı bırakmak için lütfen isminizi girin.</p>
-        <input
-          type="text"
-          placeholder="Adınız ve Soyadınız"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleStart(e)}
-        />
-        <br />
-        <button onClick={handleStart} style={{ marginTop: '15px' }}>KAMERAYI AÇ</button>
+      <div className="welcome-screen">
+        <FilmStrip />
+        <div className="welcome-content" style={{ position: 'relative' }}>
+          <p className="welcome-frame-num">FRAME ▶ 001</p>
+          <p className="welcome-title">WEDDING<br />CAM<br/></p>
+          <div className="welcome-divider" />
+          <p className="welcome-subtitle">ISO 400 — 35MM</p>
+
+          <p className="welcome-input-label">▸ İSİM</p>
+          <input
+            className="welcome-input"
+            type="text"
+            placeholder="Ad Soyad_"
+            value={name}
+            onChange={e => setName(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleStart()}
+          />
+
+          <button className="welcome-btn" onClick={handleStart}>
+            <span className="welcome-btn-text">BAŞLAT</span>
+            <span className="welcome-btn-arrow">▶</span>
+          </button>
+
+          <div className="exposure-counter">
+            <div className="exposure-dot" />
+            <span className="exposure-num">36</span>
+          </div>
+        </div>
+        <FilmStrip />
       </div>
     )
   }
 
   return (
-    <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden', backgroundColor: '#000' }}>
-
-      {/* KAMERA EKRANI: Asla gizlenmiyor, hep arkada çalışıyor */}
+    <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden', background: '#000' }}>
       <div style={{ position: 'absolute', inset: 0, zIndex: 10 }}>
         <Camera
           name={name}
@@ -112,24 +108,16 @@ export default function App() {
           setLocalPhotos={setLocalPhotos}
         />
       </div>
-
-      {/* GALERİ EKRANI: Kameranın üzerine siyah bir perde gibi çöküyor */}
       {step === 'gallery' && (
-        <div style={{
-          position: 'absolute',
-          inset: 0,
-          zIndex: 20,
-          backgroundColor: '#000'
-        }}>
+        <div style={{ position: 'absolute', inset: 0, zIndex: 20, background: '#080808' }}>
           <GlobalGallery
             localPhotos={localPhotos}
             globalPhotos={globalPhotos}
             currentUser={name}
-            onBack={handleBackToCamera}
+            onBack={() => setStep('camera')}
           />
         </div>
       )}
-
     </div>
   )
 }
